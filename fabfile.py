@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 
 from fabric.api import local
@@ -7,14 +8,14 @@ from celery.task.control import inspect
 from proj.tasks import parse, deploy_db, deploy_es
 
 def workers(action):
-    """Issue command to start, restart, or stop celery workers"""
+    """启动、重启或停止 Celery worker 的命令"""
     
-    # Prepare the directories for pids and logs
+    # 准备用于存放 PID 和日志的目录
     local("mkdir -p celery-pids celery-logs")
     
-    # Launch 4 celery workers for 4 queues (parse, db_deploy, es_deploy, and default)
-    # Each has a concurrency of 2 except the default which has a concurrency of 1
-    # More info on the format of this command can be found here:
+    # 启动 4 个 Celery worker，分别对应 4 个队列（parse、db_deploy、es_deploy、默认）
+    # 除默认队列外，每个并发数为 2；默认队列并发数为 1
+    # 该命令格式的更多信息见：
     # http://docs.celeryproject.org/en/latest/reference/celery.bin.multi.html
     
     local("celery multi {} parse db_deploy es_deploy celery "\
@@ -24,7 +25,7 @@ def workers(action):
           "--pidfile=celery-pids/%n.pid --logfile=celery-logs/%n.log".format(action))
     
 def inspect_workers():
-    """Display information about workers and queues"""
+    """显示 workers 与队列的信息"""
     
     i = inspect()
     
@@ -32,15 +33,14 @@ def inspect_workers():
     print i.active()
     
 def process_one(filename=None):
-    """Enqueues a mail file for processing"""
+    """将单个邮件文件加入队列进行处理"""
     
     res = chain(parse.s(filename), group(deploy_db.s(), deploy_es.s()))()
     
     print "Enqueued mail file for processing: {} ({})".format(filename, res)
     
 def process(path=None):
-    """Enqueues a mail file for processing. Optionally, submitting a
-    directory will enqueue all files in that directory"""
+    """将邮件文件加入队列处理；若传入目录，则会递归将目录下所有文件加入队列"""
     
     if os.path.isfile(path):
         process_one(path)
@@ -50,17 +50,17 @@ def process(path=None):
                 process_one(os.path.join(subpath, name))
     
 def query_es(query="*:*"):
-    """Query the elastic search instance"""
+    """查询本地 Elasticsearch 实例"""
     
     local("curl 'http://localhost:9200/_search?q={}&pretty=true'".format(query))
     
 def query_db(query="SELECT COUNT(*) FROM messages"):
-    """Query the MySQL database instance"""
+    """查询本地 MySQL 数据库"""
     
     local("mysql -u root -e '{}' messages".format(query))
     
 def purge():
-    """Purge all data from Elastic Search index and MySQL table"""
+    """清空 Elasticsearch 索引与 MySQL 表中的数据"""
     
     local("curl -XDELETE 'http://localhost:9200/messages/?pretty=true'")
     local("mysql -u root -e 'DROP TABLE IF EXISTS messages' messages")

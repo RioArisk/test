@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
 import email
@@ -9,8 +10,7 @@ from proj.celery import app
 
 
 class MessagesTask(Task):
-    """This is a celery abstract base class that contains all of the logic for
-    parsing and deploying content."""
+    """Celery 抽象基类，封装了解析与部署内容的通用逻辑。"""
 
     abstract = True
     
@@ -18,7 +18,7 @@ class MessagesTask(Task):
     _elasticsearch = None
     
     def _init_database(self):
-        """Set up the MySQL database"""
+        """初始化并确保 MySQL 数据库与表存在"""
     
         db = create_engine('mysql://root@localhost/messages')
         metadata = MetaData(db)
@@ -40,12 +40,12 @@ class MessagesTask(Task):
         self._messages_table = messages_table
         
     def _init_elasticsearch(self):
-        """Set up the ElasticSearch instance"""
+        """初始化 Elasticsearch 客户端"""
     
         self._elasticsearch = Elasticsearch()
         
     def parse_message_file(self, filename):
-        """Parse an email file. Return as dictionary"""
+        """解析邮件文件，返回字典"""
     
         with open(filename) as f:
             message = email.message_from_file(f)
@@ -63,7 +63,7 @@ class MessagesTask(Task):
                 'payload': message.get_payload()}
         
     def database_insert(self, message_dict):
-        """Insert a message into the MySQL database"""
+        """将消息字典写入 MySQL 数据库"""
         
         if self._messages_table is None:
             self._init_database()
@@ -72,7 +72,7 @@ class MessagesTask(Task):
         ins.execute()
         
     def elasticsearch_index(self, id, message_dict):
-        """Insert a message into the ElasticSearch index"""
+        """将消息写入 Elasticsearch 索引"""
         
         if self._elasticsearch is None:
             self._init_elasticsearch()
@@ -82,23 +82,23 @@ class MessagesTask(Task):
 
 @app.task(base=MessagesTask, queue="parse")
 def parse(filename):
-    """Parse an email file. Return as dictionary"""
+    """解析邮件文件，返回字典"""
     
-    # Call the method in the base task and return the result
+    # 调用基类方法并返回结果
     return parse.parse_message_file(filename)
 
 
 @app.task(base=MessagesTask, queue="db_deploy", ignore_result=True)
 def deploy_db(message_dict):
-    """Deploys the message dictionary to the MySQL database table"""
+    """将消息字典部署到 MySQL 表"""
     
-    # Call the method in the base task
+    # 调用基类方法
     deploy_db.database_insert(message_dict)
 
 
 @app.task(base=MessagesTask, queue="es_deploy", ignore_result=True)
 def deploy_es(message_dict):
-    """Deploys the message dictionary to the Elastic Search instance"""
+    """将消息字典部署到 Elasticsearch 实例"""
     
-    # Call the method in the base task
+    # 调用基类方法
     deploy_es.elasticsearch_index(message_dict['message_id'], message_dict)
