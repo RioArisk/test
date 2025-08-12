@@ -12,13 +12,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # 优先安装 Python 依赖（提升构建缓存命中率）
-COPY celery-message-processing/requirements.txt /app/requirements.txt
+COPY requirements.txt /app/requirements.txt
 RUN pip install --upgrade pip \
     && pip install -r /app/requirements.txt
 
 # 复制应用代码
-COPY celery-message-processing/proj /app/proj
-COPY celery-message-processing/fabfile.py /app/fabfile.py
+COPY proj /app/proj
+COPY fabfile.py /app/fabfile.py
 
 # 默认环境变量（可在 Swarm Stack 中覆盖）
 ENV BROKER_URL=amqp://celery:celery@rabbitmq:5672// \

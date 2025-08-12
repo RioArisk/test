@@ -76,7 +76,7 @@ sudo firewall-cmd --reload
 1) 构建镜像（在仓库根目录执行）
 
 ```bash
-docker build -t celery-message-processing:latest -f docker/Dockerfile .
+docker build -t test:latest -f docker/Dockerfile .
 ```
 
 2) 初始化 Swarm（若未初始化）
