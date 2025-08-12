@@ -18,7 +18,7 @@ services:
     
 
   postgres:  # PostgreSQL 17 数据库
-    image: postgres:17
+    image: postgres:17.5
     environment:
       POSTGRES_DB: messages
       POSTGRES_USER: postgres
