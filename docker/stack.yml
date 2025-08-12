@@ -1,0 +1,150 @@
+version: "3.8"  # Docker Compose/Stack 文件版本
+
+services:
+  rabbitmq:  # 消息代理（含管理界面）
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: celery
+      RABBITMQ_DEFAULT_PASS: celery
+    deploy:
+      placement:
+        constraints:
+          - node.role == worker
+
+  redis:  # 结果存储（Redis）
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    deploy:
+      placement:
+        constraints:
+          - node.role == worker
+
+  postgres:  # PostgreSQL 17 数据库
+    image: postgres:17
+    environment:
+      POSTGRES_DB: messages
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    deploy:
+      placement:
+        constraints:
+          - node.role == worker
+
+  elasticsearch:  # Elasticsearch 8（开发模式，关闭安全）
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+      placement:
+        constraints:
+          - node.role == worker
+
+  worker_parse:  # 解析队列 Worker
+    image: celery-message-processing:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      BROKER_URL: amqp://celery:celery@rabbitmq:5672//
+      RESULT_BACKEND: redis://redis:6379/0
+      DB_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/messages
+      ES_URL: http://elasticsearch:9200
+    working_dir: /app
+    command: ["bash", "-lc", "celery -A proj worker -Q parse -n parse@%h -c 2 -l info"]
+    depends_on:
+      - rabbitmq
+      - redis
+      - postgres
+      - elasticsearch
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+
+  worker_db:  # DB 写入队列 Worker
+    image: celery-message-processing:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      BROKER_URL: amqp://celery:celery@rabbitmq:5672//
+      RESULT_BACKEND: redis://redis:6379/0
+      DB_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/messages
+      ES_URL: http://elasticsearch:9200
+    working_dir: /app
+    command: ["bash", "-lc", "celery -A proj worker -Q db_deploy -n db@%h -c 2 -l info"]
+    depends_on:
+      - rabbitmq
+      - redis
+      - postgres
+      - elasticsearch
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+
+  worker_es:  # ES 写入队列 Worker
+    image: celery-message-processing:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      BROKER_URL: amqp://celery:celery@rabbitmq:5672//
+      RESULT_BACKEND: redis://redis:6379/0
+      DB_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/messages
+      ES_URL: http://elasticsearch:9200
+    working_dir: /app
+    command: ["bash", "-lc", "celery -A proj worker -Q es_deploy -n es@%h -c 2 -l info"]
+    depends_on:
+      - rabbitmq
+      - redis
+      - postgres
+      - elasticsearch
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+
+  fab:  # 运维入口容器（进入后执行 Fabric 命令）
+    image: celery-message-processing:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      BROKER_URL: amqp://celery:celery@rabbitmq:5672//
+      RESULT_BACKEND: redis://redis:6379/0
+      DB_URL: postgresql://postgres:postgres@postgres:5432/messages
+      ES_URL: http://elasticsearch:9200
+    working_dir: /app
+    entrypoint: ["sleep", "infinity"]
+    depends_on:
+      - rabbitmq
+      - redis
+      - postgres
+      - elasticsearch
+    deploy:
+      placement:
+        constraints:
+          - node.role == worker
+
+volumes:
+  pgdata:  # PostgreSQL 数据卷
+
