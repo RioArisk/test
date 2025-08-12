@@ -26,10 +26,6 @@ ENV BROKER_URL=amqp://celery:celery@rabbitmq:5672// \
     DB_URL=postgresql+psycopg2://postgres:postgres@postgres:5432/messages \
     ES_URL=http://elasticsearch:9200
 
-# Worker 入口脚本（可按队列配置）
-COPY docker/entrypoint-worker.sh /usr/local/bin/entrypoint-worker.sh
-RUN chmod +x /usr/local/bin/entrypoint-worker.sh
-
 # 默认命令仅显示帮助；实际服务会在 Stack 中用 entrypoint/command 覆盖
 CMD ["bash", "-lc", "celery --help && echo 'Use entrypoint-worker.sh for workers or run fab ...'"]
 
