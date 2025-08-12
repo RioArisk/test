@@ -52,6 +52,8 @@ services:
       ES_URL: http://elasticsearch:9200
     working_dir: /app
     command: ["bash", "-lc", "celery -A proj worker -Q parse -n parse@%h -c 2 -l info"]
+    volumes:
+      - /home/rioarisk/work/test/data:/app/data:ro
     depends_on:
       - rabbitmq
       - redis
@@ -106,6 +108,8 @@ services:
       ES_URL: http://elasticsearch:9200
     working_dir: /app
     entrypoint: ["sleep", "infinity"]
+    volumes:
+      - /home/rioarisk/work/test/data:/app/data:ro
     depends_on:
       - rabbitmq
       - redis
